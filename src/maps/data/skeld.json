@@ -39,5 +39,28 @@
     {"name": "Reactor",    "x": 1,  "y": 7, "w": 4, "h": 3},
     {"name": "Security",   "x": 7,  "y": 7, "w": 5, "h": 3},
     {"name": "Engines",    "x": 14, "y": 7, "w": 3, "h": 3}
+  ],
+  "vents": [
+    {
+      "id": "vent_admin",
+      "x": 3, "y": 4,
+      "linkedTo": ["vent_shields"]
+    },
+    {
+      "id": "vent_shields",
+      "x": 13, "y": 4,
+      "linkedTo": ["vent_admin", "vent_security"]
+    },
+    {
+      "id": "vent_security",
+      "x": 13, "y": 8,
+      "linkedTo": ["vent_shields", "vent_admin"]
+    }
+  ],
+  "tasks": [
+    { "id": "task_nav_wiring",   "name": "Fix Wiring",      "x": 2,  "y": 2  },
+    { "id": "task_weapons_cal",  "name": "Calibrate Dist.", "x": 15, "y": 2  },
+    { "id": "task_reactor_fuel", "name": "Fuel Engines",    "x": 2,  "y": 9  },
+    { "id": "task_engines_nav",  "name": "Chart Course",    "x": 15, "y": 9  }
   ]
 }

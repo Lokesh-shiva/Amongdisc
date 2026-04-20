@@ -1,28 +1,22 @@
 'use strict';
 
-const { createCanvas }   = require('@napi-rs/canvas');
+const { createCanvas }    = require('@napi-rs/canvas');
 const { TILE_SIZE, HUD_HEIGHT } = require('../constants');
-const { drawMapLayer }   = require('./layers/mapLayer');
+const { drawMapLayer, drawBodiesLayer } = require('./layers/mapLayer');
 const { drawPlayerLayer } = require('./layers/playerLayer');
-const { drawUILayer }    = require('./layers/uiLayer');
+const { drawUILayer }     = require('./layers/uiLayer');
 
 /**
- * Composites all three rendering layers into a single PNG buffer.
- *
- * Canvas layout:
- *   - Width  = map.width  × TILE_SIZE
- *   - Height = map.height × TILE_SIZE + HUD_HEIGHT
+ * Composites all rendering layers into a single PNG buffer.
  *
  * Layer order:
- *   1. Map  (tiles, markers, room labels)
- *   2. Players (ghost trails then sprites)
- *   3. HUD  (player roster, phase pill, tick counter)
- *
- * @param {object} session - full game session (loaded from Redis / gameManager)
- * @returns {Buffer} PNG image buffer
+ *   1. Map tiles (floor, task, vent, spawn overlays, room labels)
+ *   2. Dead bodies + completed task tints
+ *   3. Players (ghost trails → dead sprites → alive sprites)
+ *   4. HUD (roster, phase pill, task bar, tick counter)
  */
 function renderFrame(session) {
-  const { map, players, playerOrder, phase, tickCount } = session;
+  const { map, players, playerOrder } = session;
 
   const canvasW = map.width  * TILE_SIZE;
   const canvasH = map.height * TILE_SIZE + HUD_HEIGHT;
@@ -30,13 +24,9 @@ function renderFrame(session) {
   const canvas = createCanvas(canvasW, canvasH);
   const ctx    = canvas.getContext('2d');
 
-  // Layer 1 — Map
   drawMapLayer(ctx, map);
-
-  // Layer 2 — Players
+  drawBodiesLayer(ctx, session.bodies || [], session.tasks || {}, map);
   drawPlayerLayer(ctx, players, playerOrder);
-
-  // Layer 3 — HUD
   drawUILayer(ctx, session, canvasW, canvasH);
 
   return canvas.toBuffer('image/png');

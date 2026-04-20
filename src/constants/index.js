@@ -11,34 +11,38 @@ const TILE = {
 
 // ─── Rendering Dimensions ───────────────────────────────────────────────────
 const TILE_SIZE  = 36;  // pixels per tile
-const HUD_HEIGHT = 90;  // pixels for the bottom HUD bar
+const HUD_HEIGHT = 96;  // pixels for the bottom HUD bar (increased for task bar)
 
 // ─── Colours ────────────────────────────────────────────────────────────────
 const TILE_COLORS = {
-  WALL:       '#05050f',
-  FLOOR_FILL: '#0d1b2a',
-  FLOOR_GRID: '#1a2a3a',
-  TASK_RING:  '#f5c518',
-  TASK_GLYPH: '#ffe066',
-  VENT_BAR:   '#2ecc71',
-  VENT_BORDER:'#27ae60',
-  SPAWN_GLOW: '#3a7bd5',
-  ROOM_LABEL: 'rgba(255,255,255,0.35)',
+  WALL:        '#05050f',
+  FLOOR_FILL:  '#0d1b2a',
+  FLOOR_GRID:  '#1a2a3a',
+  TASK_RING:   '#f5c518',
+  TASK_GLYPH:  '#ffe066',
+  TASK_DONE:   '#2ecc71',   // completed task overlay tint
+  VENT_BAR:    '#2ecc71',
+  VENT_BORDER: '#27ae60',
+  SPAWN_GLOW:  '#3a7bd5',
+  ROOM_LABEL:  'rgba(255,255,255,0.35)',
+  BODY_FILL:   'rgba(180,0,0,0.7)',
 };
 
 const HUD_COLORS = {
-  BG:         'rgba(8,12,22,0.96)',
-  BORDER:     '#2a3a5a',
-  TEXT_PRIMARY:   '#e8eaf6',
-  TEXT_SECONDARY: '#7986cb',
-  PHASE_LOBBY:    '#43a047',
-  PHASE_GAME:     '#1e88e5',
-  PHASE_MEETING:  '#fb8c00',
-  PHASE_END:      '#e53935',
+  BG:               'rgba(8,12,22,0.96)',
+  BORDER:           '#2a3a5a',
+  TEXT_PRIMARY:     '#e8eaf6',
+  TEXT_SECONDARY:   '#7986cb',
+  PHASE_LOBBY:      '#43a047',
+  PHASE_GAME:       '#1e88e5',
+  PHASE_MEETING:    '#fb8c00',
+  PHASE_END:        '#e53935',
+  TASK_BAR_BG:      '#1a2a3a',
+  TASK_BAR_FILL:    '#43a047',
+  TASK_BAR_DONE:    '#00e676',
 };
 
 // ─── Player Colour Palette ───────────────────────────────────────────────────
-// 10 Among-Us-inspired colours; index wraps at 10.
 const PLAYER_COLORS = [
   { name: 'Red',    hex: '#c51111', dark: '#7a0a0a' },
   { name: 'Blue',   hex: '#132ed1', dark: '#0a1a80' },
@@ -69,11 +73,19 @@ const DIR_DELTA = {
 };
 
 // ─── Input Queue ─────────────────────────────────────────────────────────────
-const MAX_INPUT_QUEUE = 3;  // max buffered moves per player per tick
-const INPUT_TTL_S     = 60; // Redis key TTL for input lists
+const MAX_INPUT_QUEUE = 3;  // max buffered inputs per player per tick
+const INPUT_TTL_S     = 60;
 
 // ─── Session ─────────────────────────────────────────────────────────────────
-const SESSION_TTL_S = 3600; // 1 hour
+const SESSION_TTL_S = 3600;
+
+// ─── Kill System ─────────────────────────────────────────────────────────────
+const KILL_COOLDOWN_TICKS  = 10;  // ticks before impostor can kill again (~20s)
+const KILL_RANGE           = 1;   // Chebyshev distance (adjacent tiles + diagonals)
+const INITIAL_KILL_COOLDOWN = 5;  // first kill cooldown on game start
+
+// ─── Impostor Assignment ─────────────────────────────────────────────────────
+const IMPOSTOR_RATIO = 5;  // 1 impostor per this many players (min 1)
 
 module.exports = {
   TILE,
@@ -87,4 +99,8 @@ module.exports = {
   MAX_INPUT_QUEUE,
   INPUT_TTL_S,
   SESSION_TTL_S,
+  KILL_COOLDOWN_TICKS,
+  KILL_RANGE,
+  INITIAL_KILL_COOLDOWN,
+  IMPOSTOR_RATIO,
 };

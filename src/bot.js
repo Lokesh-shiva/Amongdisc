@@ -6,16 +6,15 @@ const { queueInput }         = require('./engine/inputHandler');
 const { getSession }         = require('./engine/gameManager');
 const { PHASE }              = require('./constants');
 
-// ─── Load commands ────────────────────────────────────────────────────────────
+// ─── Load slash commands ──────────────────────────────────────────────────────
 
 const commands = new Collection();
-
 for (const name of ['create', 'join', 'start', 'end']) {
   const cmd = require(`./commands/${name}`);
   commands.set(cmd.data.name, cmd);
 }
 
-// ─── Wire up event listeners ──────────────────────────────────────────────────
+// ─── Event registration ───────────────────────────────────────────────────────
 
 function registerEvents() {
   const client = getDiscordClient();
@@ -24,28 +23,23 @@ function registerEvents() {
     console.log(`[Bot] Logged in as ${c.user.tag}`);
   });
 
-  // ── Slash commands ─────────────────────────────────────────────────────────
   client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) {
       const cmd = commands.get(interaction.commandName);
       if (!cmd) return;
-
       try {
         await cmd.execute(interaction);
       } catch (err) {
         console.error(`[Bot] Command error (/${interaction.commandName}):`, err);
-        const method = interaction.deferred || interaction.replied
-          ? 'editReply'
-          : 'reply';
+        const method = interaction.deferred || interaction.replied ? 'editReply' : 'reply';
         await interaction[method]({
-          content:   '❌ An error occurred while executing that command.',
+          content: '❌ An error occurred.',
           ephemeral: true,
         }).catch(() => {});
       }
       return;
     }
 
-    // ── Button interactions ────────────────────────────────────────────────
     if (interaction.isButton()) {
       await handleButtonInteraction(interaction);
     }
@@ -56,47 +50,49 @@ function registerEvents() {
 
 const MOVE_BUTTONS = new Set(['move_up', 'move_down', 'move_left', 'move_right']);
 const DIRECTION_MAP = {
-  move_up:    'up',
-  move_down:  'down',
-  move_left:  'left',
-  move_right: 'right',
+  move_up: 'up', move_down: 'down', move_left: 'left', move_right: 'right',
+};
+
+const ACTION_BUTTONS = new Set(['action_kill', 'action_task', 'action_vent']);
+const ACTION_MAP = {
+  action_kill: 'kill', action_task: 'task', action_vent: 'vent',
 };
 
 async function handleButtonInteraction(interaction) {
-  const customId = interaction.customId;
+  const id = interaction.customId;
 
-  // ── Movement buttons ────────────────────────────────────────────────────
-  if (MOVE_BUTTONS.has(customId)) {
-    // Must deferUpdate immediately — Discord 3-second timeout
+  // ── Movement ──────────────────────────────────────────────────────────────
+  if (MOVE_BUTTONS.has(id)) {
     await interaction.deferUpdate();
-
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const session   = await getSession(sessionId);
-
     if (!session || session.phase !== PHASE.GAME) return;
-
-    // Player must be in this session
     if (!session.players[interaction.user.id]) return;
-
-    const direction = DIRECTION_MAP[customId];
-    await queueInput(sessionId, interaction.user.id, direction);
+    await queueInput(sessionId, interaction.user.id, DIRECTION_MAP[id]);
     return;
   }
 
-  // ── Lobby: Join button ─────────────────────────────────────────────────
-  if (customId === 'lobby_join') {
-    // Re-use the /join command logic via a simulated interaction adapter
+  // ── Kill / Task / Vent ────────────────────────────────────────────────────
+  if (ACTION_BUTTONS.has(id)) {
     await interaction.deferUpdate();
+    const sessionId = `${interaction.guildId}_${interaction.channelId}`;
+    const session   = await getSession(sessionId);
+    if (!session || session.phase !== PHASE.GAME) return;
+    if (!session.players[interaction.user.id]) return;
+    await queueInput(sessionId, interaction.user.id, ACTION_MAP[id]);
+    return;
+  }
 
+  // ── Lobby: Join button ────────────────────────────────────────────────────
+  if (id === 'lobby_join') {
+    await interaction.deferUpdate();
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const { joinSession, getSession: gs } = require('./engine/gameManager');
     const session = await gs(sessionId);
-
     if (!session || session.phase !== PHASE.LOBBY) return;
     if (session.playerOrder.length >= 10) return;
 
     const updated = await joinSession(sessionId, interaction.user.id, interaction.user.username);
-
     const { buildLobbyEmbed, buildLobbyButtons } = require('./commands/create');
     await interaction.message.edit({
       embeds:     [buildLobbyEmbed(updated)],
@@ -105,10 +101,9 @@ async function handleButtonInteraction(interaction) {
     return;
   }
 
-  // ── Lobby: Start button ────────────────────────────────────────────────
-  if (customId === 'lobby_start') {
+  // ── Lobby: Start button ───────────────────────────────────────────────────
+  if (id === 'lobby_start') {
     await interaction.deferUpdate();
-
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const { getSession: gs, startSession, saveSession } = require('./engine/gameManager');
     const { startLoop, buildMovementRowsPublic }        = require('./engine/gameEngine');
@@ -124,16 +119,11 @@ async function handleButtonInteraction(interaction) {
     const attachment = new AttachmentBuilder(pngBuffer, { name: 'frame.png' });
     const rows       = buildMovementRowsPublic();
 
-    const gameMsg = await interaction.channel.send({
-      files:      [attachment],
-      components: rows,
-    });
-
+    const gameMsg = await interaction.channel.send({ files: [attachment], components: rows });
     started.messageId = gameMsg.id;
     await saveSession(started);
     startLoop(started.id, started.channelId, gameMsg.id);
 
-    // Remove the lobby buttons from the original lobby message
     await interaction.message.edit({ components: [] }).catch(() => {});
   }
 }

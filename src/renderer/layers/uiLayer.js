@@ -9,18 +9,10 @@ const PHASE_PILLS = {
   [PHASE.END]:     { color: HUD_COLORS.PHASE_END,     label: '■ ENDED'   },
 };
 
-/**
- * Renders the HUD bar at the bottom of the canvas.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {object} session  - full session object
- * @param {number} canvasW  - total canvas width
- * @param {number} canvasH  - total canvas height (map area + HUD)
- */
 function drawUILayer(ctx, session, canvasW, canvasH) {
   const hudY = canvasH - HUD_HEIGHT;
 
-  // ── Background bar ────────────────────────────────────────────────────────
+  // Background
   ctx.fillStyle = HUD_COLORS.BG;
   ctx.fillRect(0, hudY, canvasW, HUD_HEIGHT);
 
@@ -32,60 +24,68 @@ function drawUILayer(ctx, session, canvasW, canvasH) {
   ctx.lineTo(canvasW, hudY);
   ctx.stroke();
 
-  // ── Left panel — player roster ────────────────────────────────────────────
-  drawPlayerRoster(ctx, session, hudY, canvasW);
+  // Divider between left roster and right panel
+  const rightPanelW = 162;
+  const divX        = canvasW - rightPanelW;
+  ctx.strokeStyle   = HUD_COLORS.BORDER;
+  ctx.lineWidth     = 1;
+  ctx.beginPath();
+  ctx.moveTo(divX, hudY + 6);
+  ctx.lineTo(divX, hudY + HUD_HEIGHT - 6);
+  ctx.stroke();
 
-  // ── Right panel — phase pill + tick + map name ────────────────────────────
-  drawRightPanel(ctx, session, canvasW, hudY);
+  drawPlayerRoster(ctx, session, hudY, canvasW, rightPanelW);
+  drawRightPanel(ctx, session, canvasW, hudY, rightPanelW);
 }
 
 // ─── Player Roster ────────────────────────────────────────────────────────────
 
-const ROSTER_PADDING    = 8;
-const ROSTER_COL_WIDTH  = 80;  // px per player column
-const DOT_RADIUS        = 6;
-const USERNAME_FONT     = '11px sans-serif';
-const ROOM_FONT         = '10px sans-serif';
+const ROSTER_PAD   = 8;
+const COL_W        = 82;
+const DOT_R        = 5;
 
-function drawPlayerRoster(ctx, session, hudY, canvasW) {
+function drawPlayerRoster(ctx, session, hudY, canvasW, rightPanelW) {
   const { players, playerOrder } = session;
-  const rightPanelW = 160;
-  const maxCols     = Math.floor((canvasW - rightPanelW - ROSTER_PADDING * 2) / ROSTER_COL_WIDTH);
-  const count       = Math.min(playerOrder.length, 10);
+  const availW  = canvasW - rightPanelW - ROSTER_PAD * 2;
+  const maxCols = Math.max(1, Math.floor(availW / COL_W));
+  const count   = Math.min(playerOrder.length, 10);
 
   for (let i = 0; i < count; i++) {
     const id     = playerOrder[i];
     const player = players[id];
     const col    = i % maxCols;
     const row    = Math.floor(i / maxCols);
-
-    const colX = ROSTER_PADDING + col * ROSTER_COL_WIDTH;
-    const rowY = hudY + ROSTER_PADDING + row * 42;
-
+    const colX   = ROSTER_PAD + col * COL_W;
+    const rowY   = hudY + ROSTER_PAD + row * 40;
     drawPlayerEntry(ctx, player, colX, rowY);
   }
 }
 
 function drawPlayerEntry(ctx, player, x, y) {
-  const color = PLAYER_COLORS[player.colorIndex % PLAYER_COLORS.length];
-  const dotCX = x + DOT_RADIUS + 2;
-  const dotCY = y + 10;
+  const color  = PLAYER_COLORS[player.colorIndex % PLAYER_COLORS.length];
+  const dotCX  = x + DOT_R + 2;
+  const dotCY  = y + 9;
 
   if (player.alive) {
-    // Coloured dot
     ctx.fillStyle = color.hex;
     ctx.beginPath();
-    ctx.arc(dotCX, dotCY, DOT_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    // Grey dot + red ×
-    ctx.fillStyle = '#607080';
-    ctx.beginPath();
-    ctx.arc(dotCX, dotCY, DOT_RADIUS, 0, Math.PI * 2);
+    ctx.arc(dotCX, dotCY, DOT_R, 0, Math.PI * 2);
     ctx.fill();
 
-    const arm = DOT_RADIUS * 0.6;
-    ctx.strokeStyle = '#e53935';
+    // Thin dark outline on dot
+    ctx.strokeStyle = color.dark;
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+  } else {
+    // Greyed out dot
+    ctx.fillStyle = '#506070';
+    ctx.beginPath();
+    ctx.arc(dotCX, dotCY, DOT_R, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Red ×
+    const arm = DOT_R * 0.6;
+    ctx.strokeStyle = '#ff1744';
     ctx.lineWidth   = 1.5;
     ctx.lineCap     = 'round';
     ctx.beginPath();
@@ -99,59 +99,62 @@ function drawPlayerEntry(ctx, player, x, y) {
     ctx.lineCap = 'butt';
   }
 
-  // Username (max 9 chars)
-  const nameX = dotCX + DOT_RADIUS + 4;
+  const nameX = dotCX + DOT_R + 4;
   const name  = (player.username || '').slice(0, 9);
-  ctx.fillStyle    = HUD_COLORS.TEXT_PRIMARY;
-  ctx.font         = USERNAME_FONT;
+
+  ctx.fillStyle    = player.alive ? HUD_COLORS.TEXT_PRIMARY : '#607080';
+  ctx.font         = '11px sans-serif';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(name, nameX, y + 10);
+  ctx.fillText(name, nameX, y + 9);
 
-  // Room name below username
   const room = player.currentRoom || 'Corridor';
   ctx.fillStyle = HUD_COLORS.TEXT_SECONDARY;
-  ctx.font      = ROOM_FONT;
-  ctx.fillText(room.slice(0, 11), nameX, y + 24);
+  ctx.font      = '9px sans-serif';
+  ctx.fillText(room.slice(0, 12), nameX, y + 22);
 }
 
 // ─── Right Panel ──────────────────────────────────────────────────────────────
 
-function drawRightPanel(ctx, session, canvasW, hudY) {
-  const panelW = 150;
-  const panelX = canvasW - panelW - 8;
+function drawRightPanel(ctx, session, canvasW, hudY, rightPanelW) {
+  const panelX = canvasW - rightPanelW + 6;
+  const panelW = rightPanelW - 14;
 
   // Phase pill
   const pill = PHASE_PILLS[session.phase] || PHASE_PILLS[PHASE.LOBBY];
-  drawPhasePill(ctx, pill, panelX, hudY + 8, panelW);
+  drawPhasePill(ctx, pill, panelX, hudY + 5, panelW);
 
-  // Tick counter label
+  // Task progress bar (only during game)
+  if (session.phase === PHASE.GAME || session.phase === PHASE.END) {
+    drawTaskBar(ctx, session, panelX, hudY + 31, panelW);
+  }
+
+  // TICK label
   ctx.fillStyle    = HUD_COLORS.TEXT_SECONDARY;
-  ctx.font         = 'bold 10px monospace';
+  ctx.font         = 'bold 9px monospace';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'top';
-  ctx.fillText('TICK', canvasW - 8, hudY + 34);
+  ctx.fillText('TICK', canvasW - 8, hudY + 50);
 
   // Large tick number
   ctx.fillStyle    = HUD_COLORS.TEXT_PRIMARY;
-  ctx.font         = 'bold 28px monospace';
+  ctx.font         = 'bold 24px monospace';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'top';
-  ctx.fillText(`#${session.tickCount}`, canvasW - 8, hudY + 44);
+  ctx.fillText(`#${session.tickCount}`, canvasW - 8, hudY + 58);
 
-  // Map name (bottom right)
+  // Map name
   ctx.fillStyle    = HUD_COLORS.TEXT_SECONDARY;
-  ctx.font         = '10px sans-serif';
+  ctx.font         = '9px sans-serif';
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(session.map.name || 'Unknown Map', canvasW - 8, hudY + HUD_HEIGHT - 6);
+  ctx.fillText(session.map.name || 'Unknown Map', canvasW - 8, hudY + HUD_HEIGHT - 4);
 }
 
 function drawPhasePill(ctx, pill, x, y, w) {
-  const h  = 22;
-  const r  = h / 2;
+  const h = 20;
+  const r = h / 2;
 
-  // Pill background
   ctx.fillStyle = pill.color;
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -162,12 +165,58 @@ function drawPhasePill(ctx, pill, x, y, w) {
   ctx.closePath();
   ctx.fill();
 
-  // Pill label
   ctx.fillStyle    = '#ffffff';
-  ctx.font         = 'bold 11px sans-serif';
+  ctx.font         = 'bold 10px sans-serif';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(pill.label, x + w / 2, y + r);
+}
+
+function drawTaskBar(ctx, session, x, y, w) {
+  const total  = session.taskTotal    || 0;
+  const done   = session.taskCompleted || 0;
+  if (total === 0) return;
+
+  const ratio  = Math.min(1, done / total);
+  const barH   = 8;
+  const isDone = done >= total;
+
+  // Track background
+  ctx.fillStyle = HUD_COLORS.TASK_BAR_BG;
+  roundRect(ctx, x, y, w, barH, 3);
+  ctx.fill();
+
+  // Fill
+  if (ratio > 0) {
+    ctx.fillStyle = isDone ? HUD_COLORS.TASK_BAR_DONE : HUD_COLORS.TASK_BAR_FILL;
+    roundRect(ctx, x, y, Math.round(w * ratio), barH, 3);
+    ctx.fill();
+  }
+
+  // Label
+  const label = isDone ? `TASKS ✓ ${done}/${total}` : `TASKS  ${done}/${total}`;
+  ctx.fillStyle    = isDone ? HUD_COLORS.TASK_BAR_DONE : HUD_COLORS.TEXT_SECONDARY;
+  ctx.font         = '9px sans-serif';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(label, x, y + barH + 2);
+}
+
+// ─── Util ─────────────────────────────────────────────────────────────────────
+
+function roundRect(ctx, x, y, w, h, r) {
+  if (w < 2 * r) r = w / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+  ctx.lineTo(x + r, y + h);
+  ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+  ctx.lineTo(x, y + r);
+  ctx.arc(x + r, y + r, r, Math.PI, -Math.PI / 2);
+  ctx.closePath();
 }
 
 module.exports = { drawUILayer };
