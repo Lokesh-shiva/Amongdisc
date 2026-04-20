@@ -1,6 +1,6 @@
 'use strict';
 
-const { createCanvas }   = require('canvas');
+const { createCanvas }   = require('@napi-rs/canvas');
 const { TILE_SIZE, HUD_HEIGHT } = require('../constants');
 const { drawMapLayer }   = require('./layers/mapLayer');
 const { drawPlayerLayer } = require('./layers/playerLayer');
