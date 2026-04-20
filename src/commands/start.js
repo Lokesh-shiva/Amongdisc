@@ -44,7 +44,7 @@ module.exports = {
     const started = await startSession(sessionId);
 
     // Render tick-0 frame
-    const pngBuffer = renderFrame(started);
+    const pngBuffer = await renderFrame(started);
     const attachment = new AttachmentBuilder(pngBuffer, { name: 'frame.png' });
 
     const { buildMovementRowsPublic } = require('../engine/gameEngine');

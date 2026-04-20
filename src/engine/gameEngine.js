@@ -2,7 +2,7 @@
 
 const { AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getDiscordClient }                       = require('../discord/client');
-const { getSession, saveSession, checkWinCondition } = require('./gameManager');
+const { getSession, saveSession, deleteSession, checkWinCondition } = require('./gameManager');
 const { consumeInputs }                          = require('./inputHandler');
 const { applyTick }                              = require('./physics');
 const { MapLoader }                              = require('../maps/mapLoader');
@@ -79,10 +79,11 @@ async function runTick(sessionId, channelId, messageId) {
   if (winner) {
     session.phase = PHASE.END;
     await saveSession(session);
-    const finalBuffer = renderFrame(session);
+    const finalBuffer = await renderFrame(session);
     await editGameMessage(channelId, messageId, finalBuffer, session, true);
     await announceWin(channelId, winner, session);
     stopLoop(sessionId);
+    await deleteSession(sessionId); // auto-cleanup — no /end needed
     return;
   }
 
@@ -90,7 +91,7 @@ async function runTick(sessionId, channelId, messageId) {
   await saveSession(session);
 
   // 8. Render and edit Discord message
-  const pngBuffer = renderFrame(session);
+  const pngBuffer = await renderFrame(session);
   await editGameMessage(channelId, messageId, pngBuffer, session, false);
 }
 

@@ -115,7 +115,7 @@ async function handleButtonInteraction(interaction) {
     if (session.hostId !== interaction.user.id)    return;
 
     const started    = await startSession(sessionId);
-    const pngBuffer  = renderFrame(started);
+    const pngBuffer  = await renderFrame(started);
     const attachment = new AttachmentBuilder(pngBuffer, { name: 'frame.png' });
     const rows       = buildMovementRowsPublic();
 
