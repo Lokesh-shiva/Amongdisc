@@ -4,6 +4,7 @@ const { getRedisClient } = require('../redis/redisClient');
 const {
   PHASE, PLAYER_COLORS, SESSION_TTL_S,
   IMPOSTOR_RATIO, INITIAL_KILL_COOLDOWN,
+  VIEWPORT_W, VIEWPORT_H,
 } = require('../constants');
 const { MapLoader }  = require('../maps/mapLoader');
 const skeldData      = require('../maps/data/skeld.json');
@@ -60,6 +61,8 @@ async function createSession({ guildId, channelId, hostId, hostUsername, tickInt
     taskTotal:      0,
     taskCompleted:  0,
     transientEvents: [],
+    viewportW:      VIEWPORT_W,
+    viewportH:      VIEWPORT_H,
   };
 
   await saveSession(session);
