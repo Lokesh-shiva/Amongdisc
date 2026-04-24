@@ -149,24 +149,24 @@ async function handleButtonInteraction(interaction) {
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const { getSession: gs, startSession, saveSession } = require('./engine/gameManager');
     const { startLoop, buildMovementRowsPublic }        = require('./engine/gameEngine');
-    const { renderFrame }                               = require('./renderer/renderer');
-    const { AttachmentBuilder }                         = require('discord.js');
 
     const session = await gs(sessionId);
     if (!session || session.phase !== PHASE.LOBBY) return;
     if (session.hostId !== interaction.user.id)    return;
 
-    const started    = await startSession(sessionId);
-    const pngBuffer  = await renderFrame(started);
-    const attachment = new AttachmentBuilder(pngBuffer, { name: 'frame.png' });
-    const rows       = buildMovementRowsPublic();
+    const started = await startSession(sessionId);
+    const rows    = buildMovementRowsPublic();
 
-    const gameMsg = await interaction.channel.send({ files: [attachment], components: rows });
-    started.messageId = gameMsg.id;
+    // Transform the lobby message into a button-only control panel (no map image)
+    await interaction.message.edit({
+      content:    '🎮 **Game in progress** — press any button to see your personal view.',
+      embeds:     [],
+      components: rows,
+    }).catch(() => {});
+
+    started.messageId = interaction.message.id;
     await saveSession(started);
-    startLoop(started.id, started.channelId, gameMsg.id);
-
-    await interaction.message.edit({ components: [] }).catch(() => {});
+    startLoop(started.id, started.channelId, interaction.message.id);
   }
 }
 
