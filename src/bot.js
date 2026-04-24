@@ -63,12 +63,28 @@ async function handleButtonInteraction(interaction) {
 
   // ── Movement ──────────────────────────────────────────────────────────────
   if (MOVE_BUTTONS.has(id)) {
-    await interaction.deferUpdate();
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const session   = await getSession(sessionId);
-    if (!session || session.phase !== PHASE.GAME) return;
-    if (!session.players[interaction.user.id]) return;
+    if (!session || session.phase !== PHASE.GAME) return interaction.deferUpdate();
+    if (!session.players[interaction.user.id]) return interaction.deferUpdate();
+
     await queueInput(sessionId, interaction.user.id, DIRECTION_MAP[id]);
+
+    try {
+      const { renderPlayerView }        = require('./renderer/renderer');
+      const { buildMovementRowsPublic } = require('./engine/gameEngine');
+      const { AttachmentBuilder }       = require('discord.js');
+      const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+      const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+      await interaction.reply({
+        ephemeral:  true,
+        files:      [attachment],
+        components: buildMovementRowsPublic(),
+      });
+    } catch (err) {
+      console.error('[Bot] Ephemeral view render error:', err);
+      await interaction.deferUpdate().catch(() => {});
+    }
     return;
   }
 
