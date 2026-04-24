@@ -189,6 +189,7 @@ function drawMinimap(ctx, session, vpX, vpY, vpW, vpH, selfId, canvasW, mapH) {
   // Player dots — fog of war: only show players within current viewport (always show self)
   for (const id of session.playerOrder) {
     const p = session.players[id];
+    if (!p || !p.position) continue;
     const isSelf = id === selfId;
     if (!isSelf) {
       const inVp = p.position.x >= vpX && p.position.x < vpX + vpW &&
@@ -274,6 +275,7 @@ async function renderPlayerView(session, playerId) {
   const visibleIds = playerOrder.filter(id => {
     if (id === playerId) return true; // always show self
     const p = players[id];
+    if (!p || !p.position) return false;
     return p.position.x >= vpX && p.position.x < vpX + vpW &&
            p.position.y >= vpY && p.position.y < vpY + vpH;
   });
