@@ -105,8 +105,22 @@ async function handleButtonInteraction(interaction) {
       if (cooldown > 0) {
         return interaction.reply({ content: `🔪 Kill is on cooldown for ${cooldown} more ticks.`, ephemeral: true });
       }
-      await interaction.deferUpdate();
       await queueInput(sessionId, interaction.user.id, action);
+      try {
+        await interaction.deferReply({ ephemeral: true });
+        const { renderPlayerView }        = require('./renderer/renderer');
+        const { buildMovementRowsPublic } = require('./engine/gameEngine');
+        const { AttachmentBuilder }       = require('discord.js');
+        const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+        const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+        await interaction.editReply({
+          files:      [attachment],
+          components: buildMovementRowsPublic(),
+        });
+      } catch (err) {
+        console.error('[Bot] Ephemeral view render error (kill):', err);
+        await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
+      }
       return;
     }
 
@@ -124,16 +138,44 @@ async function handleButtonInteraction(interaction) {
       if (task && task.completed) {
         return interaction.reply({ content: '✅ Task is already completed.', ephemeral: true });
       }
-      await interaction.reply({ content: '✅ Doing task...', ephemeral: true });
       await queueInput(sessionId, interaction.user.id, action);
+      try {
+        await interaction.deferReply({ ephemeral: true });
+        const { renderPlayerView }        = require('./renderer/renderer');
+        const { buildMovementRowsPublic } = require('./engine/gameEngine');
+        const { AttachmentBuilder }       = require('discord.js');
+        const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+        const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+        await interaction.editReply({
+          files:      [attachment],
+          components: buildMovementRowsPublic(),
+        });
+      } catch (err) {
+        console.error('[Bot] Ephemeral view render error (task):', err);
+        await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
+      }
       return;
     }
 
     if (action === 'vent') {
       if (!player.alive) return interaction.reply({ content: 'You are dead.', ephemeral: true });
       if (player.role !== 'impostor') return interaction.reply({ content: 'Only impostors can vent.', ephemeral: true });
-      await interaction.deferUpdate();
       await queueInput(sessionId, interaction.user.id, action);
+      try {
+        await interaction.deferReply({ ephemeral: true });
+        const { renderPlayerView }        = require('./renderer/renderer');
+        const { buildMovementRowsPublic } = require('./engine/gameEngine');
+        const { AttachmentBuilder }       = require('discord.js');
+        const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+        const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+        await interaction.editReply({
+          files:      [attachment],
+          components: buildMovementRowsPublic(),
+        });
+      } catch (err) {
+        console.error('[Bot] Ephemeral view render error (vent):', err);
+        await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
+      }
       return;
     }
   }
