@@ -33,9 +33,11 @@ async function deleteSession(sessionId) {
 
 // ─── Session CRUD ─────────────────────────────────────────────────────────────
 
-async function createSession({ guildId, channelId, hostId, hostUsername, tickIntervalMs }) {
+async function createSession({ guildId, channelId, hostId, hostUsername, tickIntervalMs, mapFile = 'skeld.json' }) {
   const sessionId = `${guildId}_${channelId}`;
-  const map       = new MapLoader(skeldData);
+  const mapPath   = require('path').join(__dirname, '../maps/data', mapFile);
+  const mapData   = require(mapPath);
+  const map       = new MapLoader(mapData);
   const host      = buildPlayer(hostId, hostUsername, 0);
 
   const session = {
@@ -57,6 +59,7 @@ async function createSession({ guildId, channelId, hostId, hostUsername, tickInt
     tasks:          {},
     taskTotal:      0,
     taskCompleted:  0,
+    transientEvents: [],
   };
 
   await saveSession(session);

@@ -148,10 +148,12 @@ function drawBodiesLayer(ctx, bodies, sessionTasks, mapData) {
   // First: re-render completed task overlays (green tint replaces gold)
   if (sessionTasks) {
     const S = TILE_SIZE;
+    const offX = mapData.taskOffsetX || 0;
+    const offY = mapData.taskOffsetY || 0;
     for (const task of Object.values(sessionTasks)) {
       if (!task.completed) continue;
-      const px = task.x * S;
-      const py = task.y * S;
+      const px = task.x * S + offX;
+      const py = task.y * S + offY;
       drawCompletedTaskOverlay(ctx, px, py, S);
     }
   }
@@ -169,8 +171,14 @@ function drawDeadBody(ctx, body) {
   const rw    = TILE_SIZE * 0.42;
   const rh    = TILE_SIZE * 0.20;
 
+  // Blood pool
+  ctx.fillStyle = 'rgba(160, 0, 0, 0.8)';
+  ctx.beginPath();
+  ctx.ellipse(cx + 2, cy + 3, rw * 1.4, rh * 1.6, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
   // Coloured flat oval
-  ctx.globalAlpha = 0.88;
+  ctx.globalAlpha = 1.0;
   ctx.fillStyle   = color.hex;
   ctx.beginPath();
   ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2);
@@ -178,7 +186,7 @@ function drawDeadBody(ctx, body) {
 
   // Dark outline
   ctx.strokeStyle = color.dark;
-  ctx.lineWidth   = 1.5;
+  ctx.lineWidth   = 2.0;
   ctx.stroke();
   ctx.globalAlpha = 1;
 
@@ -198,4 +206,32 @@ function drawDeadBody(ctx, body) {
   ctx.lineCap = 'butt';
 }
 
-module.exports = { drawMapLayer, drawBodiesLayer };
+function drawKillFlash(ctx, x, y) {
+  const cx = x * TILE_SIZE + TILE_SIZE / 2;
+  const cy = y * TILE_SIZE + TILE_SIZE / 2;
+  const S = TILE_SIZE;
+  
+  // Blood splatter / flash effect
+  const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, S);
+  grad.addColorStop(0, 'rgba(255, 0, 0, 0.9)');
+  grad.addColorStop(0.4, 'rgba(255, 0, 0, 0.6)');
+  grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+  
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, S, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ff1744';
+  ctx.font = `bold ${Math.round(S * 0.5)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // Text shadow
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 4;
+  ctx.fillText('KILL!', cx, cy - S * 0.6);
+  ctx.shadowBlur = 0; // reset
+}
+
+module.exports = { drawMapLayer, drawBodiesLayer, drawKillFlash };

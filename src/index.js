@@ -43,6 +43,26 @@ async function main() {
   // 5. Log in
   const client = getDiscordClient();
   await client.login(DISCORD_TOKEN);
+
+  // 6. Resume active games
+  const { PHASE } = require('./constants');
+  const { startLoop } = require('./engine/gameEngine');
+  const redis = getRedisClient();
+  const keys = await redis.keys('session:*');
+  let resumedCount = 0;
+  for (const key of keys) {
+    const raw = await redis.get(key);
+    if (raw) {
+      const session = JSON.parse(raw);
+      if (session.phase === PHASE.GAME && session.messageId) {
+        startLoop(session.id, session.channelId, session.messageId);
+        resumedCount++;
+      }
+    }
+  }
+  if (resumedCount > 0) {
+    console.log(`[Startup] Resumed ${resumedCount} active games from Redis.`);
+  }
 }
 
 main().catch((err) => {

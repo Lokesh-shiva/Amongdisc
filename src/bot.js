@@ -74,23 +74,65 @@ async function handleButtonInteraction(interaction) {
 
   // ── Kill / Task / Vent ────────────────────────────────────────────────────
   if (ACTION_BUTTONS.has(id)) {
-    await interaction.deferUpdate();
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const session   = await getSession(sessionId);
-    if (!session || session.phase !== PHASE.GAME) return;
-    if (!session.players[interaction.user.id]) return;
-    await queueInput(sessionId, interaction.user.id, ACTION_MAP[id]);
-    return;
+    if (!session || session.phase !== PHASE.GAME) return interaction.deferUpdate();
+    const player = session.players[interaction.user.id];
+    if (!player) return interaction.deferUpdate();
+
+    const action = ACTION_MAP[id];
+
+    if (action === 'kill') {
+      if (!player.alive) return interaction.reply({ content: 'You are dead.', ephemeral: true });
+      if (player.role !== 'impostor') return interaction.reply({ content: 'Only impostors can kill.', ephemeral: true });
+      const cooldown = player.killCooldownUntilTick - session.tickCount;
+      if (cooldown > 0) {
+        return interaction.reply({ content: `🔪 Kill is on cooldown for ${cooldown} more ticks.`, ephemeral: true });
+      }
+      await interaction.deferUpdate();
+      await queueInput(sessionId, interaction.user.id, action);
+      return;
+    }
+
+    if (action === 'task') {
+      if (!player.alive) return interaction.reply({ content: 'You are dead.', ephemeral: true });
+      if (player.role === 'impostor') return interaction.reply({ content: 'Impostors cannot do tasks.', ephemeral: true });
+      
+      const { MapLoader } = require('./maps/mapLoader');
+      const map = MapLoader.fromJSON(session.map);
+      const taskDef = map.getTaskAt(player.position.x, player.position.y);
+      if (!taskDef) {
+        return interaction.reply({ content: '❌ You are not standing on a task tile.', ephemeral: true });
+      }
+      const task = session.tasks[taskDef.id];
+      if (task && task.completed) {
+        return interaction.reply({ content: '✅ Task is already completed.', ephemeral: true });
+      }
+      await interaction.reply({ content: '✅ Doing task...', ephemeral: true });
+      await queueInput(sessionId, interaction.user.id, action);
+      return;
+    }
+
+    if (action === 'vent') {
+      if (!player.alive) return interaction.reply({ content: 'You are dead.', ephemeral: true });
+      if (player.role !== 'impostor') return interaction.reply({ content: 'Only impostors can vent.', ephemeral: true });
+      await interaction.deferUpdate();
+      await queueInput(sessionId, interaction.user.id, action);
+      return;
+    }
   }
 
   // ── Lobby: Join button ────────────────────────────────────────────────────
   if (id === 'lobby_join') {
-    await interaction.deferUpdate();
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const { joinSession, getSession: gs } = require('./engine/gameManager');
     const session = await gs(sessionId);
-    if (!session || session.phase !== PHASE.LOBBY) return;
-    if (session.playerOrder.length >= 10) return;
+    
+    if (!session) return interaction.reply({ content: '❌ No active lobby.', ephemeral: true });
+    if (session.phase !== PHASE.LOBBY) return interaction.reply({ content: '❌ The game has already started.', ephemeral: true });
+    if (session.playerOrder.length >= 10) return interaction.reply({ content: '❌ This lobby is full (10/10).', ephemeral: true });
+
+    await interaction.deferUpdate();
 
     const updated = await joinSession(sessionId, interaction.user.id, interaction.user.username);
     const { buildLobbyEmbed, buildLobbyButtons } = require('./commands/create');

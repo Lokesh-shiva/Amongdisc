@@ -41,8 +41,8 @@ function drawUILayer(ctx, session, canvasW, canvasH) {
 // ─── Player Roster ────────────────────────────────────────────────────────────
 
 const ROSTER_PAD   = 8;
-const COL_W        = 82;
-const DOT_R        = 5;
+const COL_W        = 100;
+const DOT_R        = 7;
 
 function drawPlayerRoster(ctx, session, hudY, canvasW, rightPanelW) {
   const { players, playerOrder } = session;
@@ -56,7 +56,7 @@ function drawPlayerRoster(ctx, session, hudY, canvasW, rightPanelW) {
     const col    = i % maxCols;
     const row    = Math.floor(i / maxCols);
     const colX   = ROSTER_PAD + col * COL_W;
-    const rowY   = hudY + ROSTER_PAD + row * 40;
+    const rowY   = hudY + ROSTER_PAD + row * 45;
     drawPlayerEntry(ctx, player, colX, rowY);
   }
 }
@@ -99,19 +99,19 @@ function drawPlayerEntry(ctx, player, x, y) {
     ctx.lineCap = 'butt';
   }
 
-  const nameX = dotCX + DOT_R + 4;
-  const name  = (player.username || '').slice(0, 9);
+  const nameX = dotCX + DOT_R + 6;
+  const name  = (player.username || '').slice(0, 10);
 
   ctx.fillStyle    = player.alive ? HUD_COLORS.TEXT_PRIMARY : '#607080';
-  ctx.font         = '11px sans-serif';
+  ctx.font         = 'bold 13px sans-serif';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(name, nameX, y + 9);
 
   const room = player.currentRoom || 'Corridor';
   ctx.fillStyle = HUD_COLORS.TEXT_SECONDARY;
-  ctx.font      = '9px sans-serif';
-  ctx.fillText(room.slice(0, 12), nameX, y + 22);
+  ctx.font      = '11px sans-serif';
+  ctx.fillText(room.slice(0, 14), nameX, y + 25);
 }
 
 // ─── Right Panel ──────────────────────────────────────────────────────────────

@@ -10,10 +10,31 @@ const {
 const { createSession, getSession } = require('../engine/gameManager');
 const { PLAYER_COLORS }             = require('../constants');
 
+const fs = require('fs');
+const path = require('path');
+
+const mapsDir = path.join(__dirname, '../maps/data');
+const mapFiles = fs.readdirSync(mapsDir).filter(f => f.endsWith('.json'));
+const mapChoices = mapFiles.slice(0, 25).map(f => ({
+  name: f.replace('.json', ''),
+  value: f
+}));
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('create')
-    .setDescription('Create a new game lobby in this channel'),
+    .setDescription('Create a new game lobby in this channel')
+    .addIntegerOption(opt => opt
+      .setName('tick_interval')
+      .setDescription('Tick interval in milliseconds (e.g. 2000)')
+      .setMinValue(500)
+      .setMaxValue(10000)
+    )
+    .addStringOption(opt => {
+      opt.setName('map').setDescription('Map to play on');
+      mapChoices.forEach(c => opt.addChoice(c.name, c.value));
+      return opt;
+    }),
 
   /**
    * @param {import('discord.js').ChatInputCommandInteraction} interaction
@@ -32,11 +53,16 @@ module.exports = {
       return;
     }
 
+    const tickIntervalMs = interaction.options.getInteger('tick_interval') || undefined;
+    const mapFile = interaction.options.getString('map') || 'skeld.json';
+
     const session = await createSession({
       guildId:  interaction.guildId,
       channelId: interaction.channelId,
       hostId:    interaction.user.id,
       hostUsername: interaction.user.username,
+      tickIntervalMs,
+      mapFile,
     });
 
     const embed = buildLobbyEmbed(session);
