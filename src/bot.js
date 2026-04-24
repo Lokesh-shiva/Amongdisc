@@ -1,10 +1,12 @@
 'use strict';
 
-const { Events, Collection } = require('discord.js');
+const { Events, Collection, AttachmentBuilder } = require('discord.js');
 const { getDiscordClient }   = require('./discord/client');
 const { queueInput }         = require('./engine/inputHandler');
 const { getSession }         = require('./engine/gameManager');
 const { PHASE }              = require('./constants');
+const { renderPlayerView }        = require('./renderer/renderer');
+const { buildMovementRowsPublic } = require('./engine/gameEngine');
 
 // ─── Load slash commands ──────────────────────────────────────────────────────
 
@@ -72,9 +74,6 @@ async function handleButtonInteraction(interaction) {
 
     try {
       await interaction.deferReply({ ephemeral: true });
-      const { renderPlayerView }        = require('./renderer/renderer');
-      const { buildMovementRowsPublic } = require('./engine/gameEngine');
-      const { AttachmentBuilder }       = require('discord.js');
       const pngBuffer  = await renderPlayerView(session, interaction.user.id);
       const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
       await interaction.editReply({
@@ -108,9 +107,6 @@ async function handleButtonInteraction(interaction) {
       await queueInput(sessionId, interaction.user.id, action);
       try {
         await interaction.deferReply({ ephemeral: true });
-        const { renderPlayerView }        = require('./renderer/renderer');
-        const { buildMovementRowsPublic } = require('./engine/gameEngine');
-        const { AttachmentBuilder }       = require('discord.js');
         const pngBuffer  = await renderPlayerView(session, interaction.user.id);
         const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
         await interaction.editReply({
@@ -141,9 +137,6 @@ async function handleButtonInteraction(interaction) {
       await queueInput(sessionId, interaction.user.id, action);
       try {
         await interaction.deferReply({ ephemeral: true });
-        const { renderPlayerView }        = require('./renderer/renderer');
-        const { buildMovementRowsPublic } = require('./engine/gameEngine');
-        const { AttachmentBuilder }       = require('discord.js');
         const pngBuffer  = await renderPlayerView(session, interaction.user.id);
         const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
         await interaction.editReply({
@@ -163,9 +156,6 @@ async function handleButtonInteraction(interaction) {
       await queueInput(sessionId, interaction.user.id, action);
       try {
         await interaction.deferReply({ ephemeral: true });
-        const { renderPlayerView }        = require('./renderer/renderer');
-        const { buildMovementRowsPublic } = require('./engine/gameEngine');
-        const { AttachmentBuilder }       = require('discord.js');
         const pngBuffer  = await renderPlayerView(session, interaction.user.id);
         const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
         await interaction.editReply({
