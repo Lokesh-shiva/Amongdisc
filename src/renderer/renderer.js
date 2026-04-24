@@ -73,6 +73,15 @@ async function renderFrame(session) {
   drawPlayerLayer(ctx, players, playerOrder);
   drawUILayer(ctx, session, canvasW, canvasH);
 
+  if (session.transientEvents) {
+    const { drawKillFlash } = require('./layers/mapLayer');
+    for (const event of session.transientEvents) {
+      if (event.type === 'kill') {
+        drawKillFlash(ctx, event.x, event.y);
+      }
+    }
+  }
+
   return canvas.toBuffer('image/png');
 }
 
@@ -80,10 +89,12 @@ async function renderFrame(session) {
 
 function drawTaskOverlays(ctx, mapData, sessionTasks) {
   const S = TILE_SIZE;
+  const offX = mapData.taskOffsetX || 0;
+  const offY = mapData.taskOffsetY || 0;
 
   for (const task of Object.values(sessionTasks)) {
-    const px = task.x * S;
-    const py = task.y * S;
+    const px = task.x * S + offX;
+    const py = task.y * S + offY;
     const cx = px + S / 2;
     const cy = py + S / 2;
     const r  = S * 0.38;

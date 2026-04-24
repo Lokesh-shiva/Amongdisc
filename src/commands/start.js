@@ -35,8 +35,8 @@ module.exports = {
       return;
     }
 
-    if (session.playerOrder.length < 1) {
-      await interaction.editReply({ content: '❌ At least 1 player needed.' });
+    if (session.playerOrder.length < 4) {
+      await interaction.editReply({ content: '❌ At least 4 players needed to start.' });
       return;
     }
 

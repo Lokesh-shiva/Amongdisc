@@ -46,6 +46,7 @@ function resolveMovement(map, players, moverId, direction) {
  */
 function applyTick(session, map, inputs) {
   const { players, playerOrder } = session;
+  session.transientEvents = [];
 
   // Pass 1: movement
   for (const playerId of playerOrder) {
@@ -111,6 +112,16 @@ function applyKill(session, map, killerId) {
     y:          target.position.y,
     colorIndex: target.colorIndex,
     username:   target.username,
+  });
+
+  session.transientEvents.push({ 
+    type: 'kill', 
+    x: target.position.x, 
+    y: target.position.y,
+    killerId,
+    victimId: id,
+    killerName: killer.username,
+    victimName: target.username
   });
 
   killer.killCooldownUntilTick = session.tickCount + KILL_COOLDOWN_TICKS;

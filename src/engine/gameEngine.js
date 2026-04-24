@@ -65,6 +65,28 @@ async function runTick(sessionId, channelId, messageId) {
   // 3. Apply physics (movement + kill + task + vent)
   applyTick(session, map, inputs);
 
+  // 3.5 Process transient events (like kills)
+  if (session.transientEvents && session.transientEvents.length > 0) {
+    const client = getDiscordClient();
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    
+    for (const event of session.transientEvents) {
+      if (event.type === 'kill') {
+        // Send channel announcement
+        if (channel) {
+          channel.send(`💀 **${event.victimName}** was just murdered!`).catch(() => {});
+        }
+        // Send DM to victim
+        try {
+          const victimUser = await client.users.fetch(event.victimId);
+          await victimUser.send(`🔪 **You were killed by ${event.killerName}!** You are now a ghost.`);
+        } catch {
+          // DMs disabled
+        }
+      }
+    }
+  }
+
   // 4. Update room names for all players
   for (const id of session.playerOrder) {
     const p = session.players[id];

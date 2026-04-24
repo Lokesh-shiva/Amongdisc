@@ -3,10 +3,10 @@
 const { TILE_SIZE, PLAYER_COLORS } = require('../../constants');
 
 // Sprite geometry constants (all relative to TILE_SIZE)
-const HEAD_R   = Math.round(TILE_SIZE * 0.26);  // ~9px  head radius
-const BODY_RX  = Math.round(TILE_SIZE * 0.28);  // ~10px body half-width
-const BODY_RY  = Math.round(TILE_SIZE * 0.22);  // ~8px  body half-height
-const GHOST_R  = Math.round(TILE_SIZE * 0.20);  // ~7px  ghost trail radius
+const HEAD_R   = Math.round(TILE_SIZE * 0.39);  // increased
+const BODY_RX  = Math.round(TILE_SIZE * 0.42);  // increased
+const BODY_RY  = Math.round(TILE_SIZE * 0.33);  // increased
+const GHOST_R  = Math.round(TILE_SIZE * 0.30);  // increased
 
 // Among-Us body: head sits on top of a squarish torso
 // Head center offset from tile center:  -HEAD_R * 0.6 upward
