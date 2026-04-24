@@ -6,7 +6,8 @@ const { queueInput }         = require('./engine/inputHandler');
 const { getSession }         = require('./engine/gameManager');
 const { PHASE }              = require('./constants');
 const { renderPlayerView }        = require('./renderer/renderer');
-const { buildMovementRowsPublic } = require('./engine/gameEngine');
+const { buildMovementRowsPublic, startLoop } = require('./engine/gameEngine');
+const { MapLoader } = require('./maps/mapLoader');
 
 // ─── Load slash commands ──────────────────────────────────────────────────────
 
@@ -124,7 +125,6 @@ async function handleButtonInteraction(interaction) {
       if (!player.alive) return interaction.reply({ content: 'You are dead.', ephemeral: true });
       if (player.role === 'impostor') return interaction.reply({ content: 'Impostors cannot do tasks.', ephemeral: true });
       
-      const { MapLoader } = require('./maps/mapLoader');
       const map = MapLoader.fromJSON(session.map);
       const taskDef = map.getTaskAt(player.position.x, player.position.y);
       if (!taskDef) {
@@ -196,7 +196,6 @@ async function handleButtonInteraction(interaction) {
     await interaction.deferUpdate();
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const { getSession: gs, startSession, saveSession } = require('./engine/gameManager');
-    const { startLoop, buildMovementRowsPublic }        = require('./engine/gameEngine');
 
     const session = await gs(sessionId);
     if (!session || session.phase !== PHASE.LOBBY) return;
