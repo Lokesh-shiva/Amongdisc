@@ -79,6 +79,10 @@ const INPUT_TTL_S     = 60;
 // ─── Session ─────────────────────────────────────────────────────────────────
 const SESSION_TTL_S = 3600;
 
+// ─── Viewport (fog of war) ───────────────────────────────────────────────────
+const VIEWPORT_W = 9;   // tiles wide each player can see
+const VIEWPORT_H = 7;   // tiles tall each player can see
+
 // ─── Kill System ─────────────────────────────────────────────────────────────
 const KILL_COOLDOWN_TICKS  = 10;  // ticks before impostor can kill again (~20s)
 const KILL_RANGE           = 1;   // Chebyshev distance (adjacent tiles + diagonals)
@@ -103,4 +107,6 @@ module.exports = {
   KILL_RANGE,
   INITIAL_KILL_COOLDOWN,
   IMPOSTOR_RATIO,
+  VIEWPORT_W,
+  VIEWPORT_H,
 };
