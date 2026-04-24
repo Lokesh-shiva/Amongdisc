@@ -111,10 +111,6 @@ async function runTick(sessionId, channelId, messageId) {
 
   // 7. Save updated session
   await saveSession(session);
-
-  // 8. Render and edit Discord message
-  const pngBuffer = await renderFrame(session);
-  await editGameMessage(channelId, messageId, pngBuffer, session, false);
 }
 
 // ─── Discord helpers ──────────────────────────────────────────────────────────
