@@ -71,19 +71,19 @@ async function handleButtonInteraction(interaction) {
     await queueInput(sessionId, interaction.user.id, DIRECTION_MAP[id]);
 
     try {
+      await interaction.deferReply({ ephemeral: true });
       const { renderPlayerView }        = require('./renderer/renderer');
       const { buildMovementRowsPublic } = require('./engine/gameEngine');
       const { AttachmentBuilder }       = require('discord.js');
       const pngBuffer  = await renderPlayerView(session, interaction.user.id);
       const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
-      await interaction.reply({
-        ephemeral:  true,
+      await interaction.editReply({
         files:      [attachment],
         components: buildMovementRowsPublic(),
       });
     } catch (err) {
       console.error('[Bot] Ephemeral view render error:', err);
-      await interaction.deferUpdate().catch(() => {});
+      await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
     }
     return;
   }
