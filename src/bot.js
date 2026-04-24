@@ -158,11 +158,15 @@ async function handleButtonInteraction(interaction) {
     const rows    = buildMovementRowsPublic();
 
     // Transform the lobby message into a button-only control panel (no map image)
-    await interaction.message.edit({
+    const edited = await interaction.message.edit({
       content:    '🎮 **Game in progress** — press any button to see your personal view.',
       embeds:     [],
       components: rows,
-    }).catch(() => {});
+    }).catch(err => {
+      console.error('[lobby_start] Failed to edit lobby message:', err);
+      return null;
+    });
+    if (!edited) return;
 
     started.messageId = interaction.message.id;
     await saveSession(started);
