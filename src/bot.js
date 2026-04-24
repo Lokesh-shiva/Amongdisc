@@ -1,10 +1,13 @@
 'use strict';
 
-const { Events, Collection } = require('discord.js');
+const { Events, Collection, AttachmentBuilder } = require('discord.js');
 const { getDiscordClient }   = require('./discord/client');
 const { queueInput }         = require('./engine/inputHandler');
 const { getSession }         = require('./engine/gameManager');
 const { PHASE }              = require('./constants');
+const { renderPlayerView }        = require('./renderer/renderer');
+const { buildMovementRowsPublic, startLoop } = require('./engine/gameEngine');
+const { MapLoader } = require('./maps/mapLoader');
 
 // ─── Load slash commands ──────────────────────────────────────────────────────
 
@@ -63,12 +66,25 @@ async function handleButtonInteraction(interaction) {
 
   // ── Movement ──────────────────────────────────────────────────────────────
   if (MOVE_BUTTONS.has(id)) {
-    await interaction.deferUpdate();
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const session   = await getSession(sessionId);
-    if (!session || session.phase !== PHASE.GAME) return;
-    if (!session.players[interaction.user.id]) return;
+    if (!session || session.phase !== PHASE.GAME) return interaction.deferUpdate();
+    if (!session.players[interaction.user.id]) return interaction.deferUpdate();
+
     await queueInput(sessionId, interaction.user.id, DIRECTION_MAP[id]);
+
+    try {
+      await interaction.deferReply({ ephemeral: true });
+      const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+      const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+      await interaction.editReply({
+        files:      [attachment],
+        components: buildMovementRowsPublic(),
+      });
+    } catch (err) {
+      console.error('[Bot] Ephemeral view render error:', err);
+      await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
+    }
     return;
   }
 
@@ -89,8 +105,19 @@ async function handleButtonInteraction(interaction) {
       if (cooldown > 0) {
         return interaction.reply({ content: `🔪 Kill is on cooldown for ${cooldown} more ticks.`, ephemeral: true });
       }
-      await interaction.deferUpdate();
       await queueInput(sessionId, interaction.user.id, action);
+      try {
+        await interaction.deferReply({ ephemeral: true });
+        const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+        const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+        await interaction.editReply({
+          files:      [attachment],
+          components: buildMovementRowsPublic(),
+        });
+      } catch (err) {
+        console.error('[Bot] Ephemeral view render error (kill):', err);
+        await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
+      }
       return;
     }
 
@@ -98,7 +125,6 @@ async function handleButtonInteraction(interaction) {
       if (!player.alive) return interaction.reply({ content: 'You are dead.', ephemeral: true });
       if (player.role === 'impostor') return interaction.reply({ content: 'Impostors cannot do tasks.', ephemeral: true });
       
-      const { MapLoader } = require('./maps/mapLoader');
       const map = MapLoader.fromJSON(session.map);
       const taskDef = map.getTaskAt(player.position.x, player.position.y);
       if (!taskDef) {
@@ -108,16 +134,38 @@ async function handleButtonInteraction(interaction) {
       if (task && task.completed) {
         return interaction.reply({ content: '✅ Task is already completed.', ephemeral: true });
       }
-      await interaction.reply({ content: '✅ Doing task...', ephemeral: true });
       await queueInput(sessionId, interaction.user.id, action);
+      try {
+        await interaction.deferReply({ ephemeral: true });
+        const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+        const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+        await interaction.editReply({
+          files:      [attachment],
+          components: buildMovementRowsPublic(),
+        });
+      } catch (err) {
+        console.error('[Bot] Ephemeral view render error (task):', err);
+        await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
+      }
       return;
     }
 
     if (action === 'vent') {
       if (!player.alive) return interaction.reply({ content: 'You are dead.', ephemeral: true });
       if (player.role !== 'impostor') return interaction.reply({ content: 'Only impostors can vent.', ephemeral: true });
-      await interaction.deferUpdate();
       await queueInput(sessionId, interaction.user.id, action);
+      try {
+        await interaction.deferReply({ ephemeral: true });
+        const pngBuffer  = await renderPlayerView(session, interaction.user.id);
+        const attachment = new AttachmentBuilder(pngBuffer, { name: 'view.png' });
+        await interaction.editReply({
+          files:      [attachment],
+          components: buildMovementRowsPublic(),
+        });
+      } catch (err) {
+        console.error('[Bot] Ephemeral view render error (vent):', err);
+        await interaction.editReply({ content: '⚠️ Could not render view.' }).catch(() => {});
+      }
       return;
     }
   }
@@ -148,25 +196,28 @@ async function handleButtonInteraction(interaction) {
     await interaction.deferUpdate();
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const { getSession: gs, startSession, saveSession } = require('./engine/gameManager');
-    const { startLoop, buildMovementRowsPublic }        = require('./engine/gameEngine');
-    const { renderFrame }                               = require('./renderer/renderer');
-    const { AttachmentBuilder }                         = require('discord.js');
 
     const session = await gs(sessionId);
     if (!session || session.phase !== PHASE.LOBBY) return;
     if (session.hostId !== interaction.user.id)    return;
 
-    const started    = await startSession(sessionId);
-    const pngBuffer  = await renderFrame(started);
-    const attachment = new AttachmentBuilder(pngBuffer, { name: 'frame.png' });
-    const rows       = buildMovementRowsPublic();
+    const started = await startSession(sessionId);
+    const rows    = buildMovementRowsPublic();
 
-    const gameMsg = await interaction.channel.send({ files: [attachment], components: rows });
-    started.messageId = gameMsg.id;
+    // Transform the lobby message into a button-only control panel (no map image)
+    const edited = await interaction.message.edit({
+      content:    '🎮 **Game in progress** — press any button to see your personal view.',
+      embeds:     [],
+      components: rows,
+    }).catch(err => {
+      console.error('[lobby_start] Failed to edit lobby message:', err);
+      return null;
+    });
+    if (!edited) return;
+
+    started.messageId = interaction.message.id;
     await saveSession(started);
-    startLoop(started.id, started.channelId, gameMsg.id);
-
-    await interaction.message.edit({ components: [] }).catch(() => {});
+    startLoop(started.id, started.channelId, interaction.message.id);
   }
 }
 

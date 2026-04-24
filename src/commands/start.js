@@ -1,9 +1,8 @@
 'use strict';
 
-const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder }                    = require('discord.js');
 const { getSession, startSession, saveSession }  = require('../engine/gameManager');
-const { startLoop }                              = require('../engine/gameEngine');
-const { renderFrame }                            = require('../renderer/renderer');
+const { startLoop, buildMovementRowsPublic }     = require('../engine/gameEngine');
 const { PHASE }                                  = require('../constants');
 
 module.exports = {
@@ -15,7 +14,7 @@ module.exports = {
    * @param {import('discord.js').ChatInputCommandInteraction} interaction
    */
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
 
     const sessionId = `${interaction.guildId}_${interaction.channelId}`;
     const session   = await getSession(sessionId);
@@ -40,29 +39,19 @@ module.exports = {
       return;
     }
 
-    // Transition to GAME phase and assign spawn positions
     const started = await startSession(sessionId);
+    const rows    = buildMovementRowsPublic();
 
-    // Render tick-0 frame
-    const pngBuffer = await renderFrame(started);
-    const attachment = new AttachmentBuilder(pngBuffer, { name: 'frame.png' });
-
-    const { buildMovementRowsPublic } = require('../engine/gameEngine');
-    const rows = buildMovementRowsPublic();
-
-    // Delete the ephemeral reply and post the game message
-    await interaction.deleteReply().catch(() => {});
-
+    // Post a text-only control panel (no map image) so fog of war is preserved
     const gameMsg = await interaction.channel.send({
-      files:      [attachment],
+      content:    '🎮 **Game in progress** — press any button to see your personal view.',
       components: rows,
     });
 
-    // Persist the game message ID so the tick loop knows what to edit
     started.messageId = gameMsg.id;
     await saveSession(started);
-
-    // Start the tick loop
     startLoop(started.id, started.channelId, gameMsg.id);
+
+    await interaction.editReply({ content: '✅ Game started!' });
   },
 };
