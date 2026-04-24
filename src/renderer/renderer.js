@@ -2,10 +2,11 @@
 
 const path                    = require('path');
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
-const { TILE_SIZE, HUD_HEIGHT, TILE_COLORS, TILE } = require('../constants');
+const { TILE_SIZE, HUD_HEIGHT, TILE_COLORS, TILE, VIEWPORT_W, VIEWPORT_H, PLAYER_COLORS } = require('../constants');
 const { drawBodiesLayer }     = require('./layers/mapLayer');
 const { drawPlayerLayer }     = require('./layers/playerLayer');
 const { drawUILayer }         = require('./layers/uiLayer');
+const { computeViewport }     = require('./viewport');
 
 // Path to the user-supplied map background image
 const MAP_IMAGE_PATH = path.join(__dirname, '../maps/data/starbase.png');
@@ -155,4 +156,150 @@ function drawRoomLabels(ctx, mapData) {
   }
 }
 
-module.exports = { renderFrame };
+// ─── Minimap overlay ──────────────────────────────────────────────────────────
+
+function drawMinimap(ctx, session, vpX, vpY, vpW, vpH, selfId, canvasW, mapH) {
+  const mapData = session.map;
+  const MM_W = Math.round(canvasW * 0.20);
+  const MM_H = Math.round(MM_W * mapData.height / mapData.width);
+  const MM_X = canvasW - MM_W - 8;
+  const MM_Y = mapH - MM_H - 8;
+  const tileW = MM_W / mapData.width;
+  const tileH = MM_H / mapData.height;
+
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0.70)';
+  ctx.fillRect(MM_X, MM_Y, MM_W, MM_H);
+
+  // Border
+  ctx.strokeStyle = '#445566';
+  ctx.lineWidth   = 1;
+  ctx.strokeRect(MM_X, MM_Y, MM_W, MM_H);
+
+  // Viewport rectangle (white outline showing where we are)
+  ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+  ctx.lineWidth   = 1;
+  ctx.strokeRect(
+    MM_X + vpX * tileW,
+    MM_Y + vpY * tileH,
+    vpW * tileW,
+    vpH * tileH
+  );
+
+  // Player dots — fog of war: only show players within current viewport (always show self)
+  for (const id of session.playerOrder) {
+    const p = session.players[id];
+    const isSelf = id === selfId;
+    if (!isSelf) {
+      const inVp = p.position.x >= vpX && p.position.x < vpX + vpW &&
+                   p.position.y >= vpY && p.position.y < vpY + vpH;
+      if (!inVp) continue;
+    }
+    const dotX  = MM_X + (p.position.x + 0.5) * tileW;
+    const dotY  = MM_Y + (p.position.y + 0.5) * tileH;
+    const color = PLAYER_COLORS[p.colorIndex % PLAYER_COLORS.length];
+    ctx.fillStyle = isSelf ? '#ffffff' : color.hex;
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, isSelf ? 3 : 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Renders a personal viewport for one player.
+ * Dead players (ghosts) get the full map via renderFrame.
+ * Alive players get a zoomed 9×7-tile crop scaled to the full canvas size.
+ *
+ * @param {object} session
+ * @param {string} playerId
+ * @returns {Promise<Buffer>} PNG buffer
+ */
+async function renderPlayerView(session, playerId) {
+  const player = session.players[playerId];
+
+  // Ghosts see the full map
+  if (!player || !player.alive) return renderFrame(session);
+
+  const { map, players, playerOrder } = session;
+  const vpW = session.viewportW || VIEWPORT_W;
+  const vpH = session.viewportH || VIEWPORT_H;
+
+  const mapW    = map.width  * TILE_SIZE;
+  const mapH    = map.height * TILE_SIZE;
+  const canvasW = mapW;
+  const canvasH = mapH + HUD_HEIGHT;
+
+  const { x: vpX, y: vpY } = computeViewport(
+    player.position.x, player.position.y,
+    map.width, map.height,
+    vpW, vpH
+  );
+
+  const canvas = createCanvas(canvasW, canvasH);
+  const ctx    = canvas.getContext('2d');
+
+  const img = await loadMapImage();
+
+  // ── Draw map background (cropped + scaled up) ─────────────────────────────
+  if (img) {
+    ctx.drawImage(
+      img,
+      vpX * TILE_SIZE, vpY * TILE_SIZE, vpW * TILE_SIZE, vpH * TILE_SIZE,
+      0, 0, mapW, mapH
+    );
+  }
+
+  // ── Scale + translate context so existing draw helpers work correctly ──────
+  const scaleX = mapW / (vpW * TILE_SIZE);
+  const scaleY = mapH / (vpH * TILE_SIZE);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, mapW, mapH);
+  ctx.clip();
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(-vpX * TILE_SIZE, -vpY * TILE_SIZE);
+
+  if (img) {
+    drawTaskOverlays(ctx, map, session.tasks || {});
+  } else {
+    const { drawMapLayer } = require('./layers/mapLayer');
+    drawMapLayer(ctx, map);
+    drawTaskOverlays(ctx, map, session.tasks || {});
+  }
+
+  drawBodiesLayer(ctx, session.bodies || [], session.tasks || {}, map);
+
+  // Filter players to those within the viewport only
+  const visibleIds = playerOrder.filter(id => {
+    if (id === playerId) return true; // always show self
+    const p = players[id];
+    return p.position.x >= vpX && p.position.x < vpX + vpW &&
+           p.position.y >= vpY && p.position.y < vpY + vpH;
+  });
+  drawPlayerLayer(ctx, players, visibleIds);
+
+  // Kill flash (only if within viewport)
+  if (session.transientEvents) {
+    const { drawKillFlash } = require('./layers/mapLayer');
+    for (const event of session.transientEvents) {
+      if (event.type === 'kill') {
+        const inVp = event.x >= vpX && event.x < vpX + vpW &&
+                     event.y >= vpY && event.y < vpY + vpH;
+        if (inVp) drawKillFlash(ctx, event.x, event.y);
+      }
+    }
+  }
+
+  ctx.restore();
+
+  // ── Minimap overlay ───────────────────────────────────────────────────────
+  drawMinimap(ctx, session, vpX, vpY, vpW, vpH, playerId, canvasW, mapH);
+
+  // ── HUD ───────────────────────────────────────────────────────────────────
+  drawUILayer(ctx, session, canvasW, canvasH);
+
+  return canvas.toBuffer('image/png');
+}
+
+module.exports = { renderFrame, renderPlayerView };
